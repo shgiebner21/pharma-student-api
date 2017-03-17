@@ -109,4 +109,29 @@ VALUES
 , (4, 'esomeprazole')
 , (5, 'esomeprazole')
 , (6, 'acetaminophen')
-, (6, 'hydrocodone');
+, (6, 'hydrocodone')
+
+
+CREATE VIEW medWithIngredients AS
+SELECT m.ID AS ID
+,m.name AS name
+,m.label AS label
+,m.amount AS amount
+,m.unit AS unit
+,m.form AS form
+,mi.ingredient AS ingredient
+FROM med m
+LEFT JOIN medIngredient mi on m.ID = mi.medID
+
+
+CREATE VIEW patientWithConditions AS
+SELECT pat.ID AS ID
+,pat.patientNumber AS patientNumber
+,pat.firstName AS firstName
+,pat.lastName AS lastName
+,pat.birthdate AS birthdate
+,pat.gender AS gender
+,pat.ethnicity AS ethnicity
+,patCond.condition AS 'condition'
+FROM patient pat
+LEFT JOIN patientCondition patCond ON pat.ID = patCond.patientID;

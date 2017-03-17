@@ -2,30 +2,11 @@ const express = require('express')
 const app = express()
 const dalModule = process.env.DAL || 'nosql';
 const dal = dalModule === 'nosql' ? 'dal.js' : 'dal-mysql.js'
-const {
-    getMed,
-    getUniqueForms,
-    listMedsByLabel,
-    getUniqueIngredients,
-    listMedsByIngredient,
-    listMedsByForm,
-    updatePharmacy,
-    addPharmacy,
-    getPharmacy,
-    listPharmacies,
-    deletePharmacy,
-    addPatient,
-    getPatients,
-    listPatientsByLastName,
-    getUniqueConditions,
-    listPatientsByCondition,
-    updatePatient,
-    deletePatient,
-    getPatient,
-    addMed,
-    updateMed,
-    deleteMed
-} = require('./' + dal)
+const {getMed, getUniqueForms, listMedsByLabel, getUniqueIngredients, listMedsByIngredient, listMedsByForm,
+       updatePharmacy, addPharmacy, getPharmacy, listPharmacies, deletePharmacy, addPatient, getPatients,
+       listPatientsByLastName, getUniqueConditions, listPatientsByCondition, updatePatient, deletePatient,
+       getPatient, addMed, updateMed, deleteMed}
+    = require('./' + dal)
 
 const {
     split
@@ -63,7 +44,7 @@ app.get('/medications', function(req, res, next) {
         const startkey = req.query.startkey ? req.query.startkey : undefined
         const limit = req.query.limit ? req.query.limit : undefined
         listMedsByLabel(startkey, limit, function(err, meds) {
-            console.log(startkey + " " + limit) //working...
+//            console.log(startkey + " " + limit) //working...
             if (err) return next(new HTTPError(err.status, err.message, err))
             res.status(200).send(meds)
         })
@@ -142,8 +123,9 @@ app.get('/patients', function(req, res, next) {
             res.status(200).send(patient)
         })
     } else if (!req.query.filter) {
-
-        getPatients(function(err, patients) {
+      const startKey = req.query.startkey ? req.query.startkey : undefined
+      const limit = req.query.limit ? req.query.limit : undefined
+        getPatients(startKey, limit, function(err, patients) {
             if (err) return next(new HTTPError(err.status, err.message, err))
             res.status(200).send(patients)
         })
