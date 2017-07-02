@@ -1,250 +1,140 @@
 const express = require('express')
 const app = express()
-
-const { getUniqueForms, listMedsByLabel, getUniqueIngredients, listMedsByIngredient,
-        listMedsByForm, getMed, updatePharmacy, addPharmacy, getPharmacy, listPharmacies, deletePharmacy,
-        addPatient, getPatients, listPatientsByLastName, getUniqueConditions, listPatientsByCondition,
-        updatePatient, deletePatient, getPatient, addMed, updateMed, deleteMed} = require('./dal.js')
-const { split } = require('ramda')
-
-const bodyParser = require('body-parser')
-
-const HTTPError = require('node-http-error')
 const port = process.env.PORT || 8082
+const bodyParser = require('body-parser')
+const HTTPError = require('node-http-error')
 const cors = require('cors')
+
+const {postFamily, postChildren, listChildren,
+       getChild, listBadges, getFamilies, getFamily, getParks,
+       getPark, getActivity, updateChild} = require('./dal.js')
 
 app.use(cors({
     credentials: true
 }))
 app.use(bodyParser.json())
 
-///////////////////////
-//   medications
-//////////////////////
 
-app.get('/medications', function(req, res, next) {
-    if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'ingredient') {
-        const result = split(':', req.query.filter)
-        listMedsByIngredient(result[1], function(err, meds) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(meds)
-        })
-    } else if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'form') {
-        const result = split(':', req.query.filter)
-        listMedsByForm(result[1], function(err, meds) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(meds)
-        })
-    } else if (!req.query.filter) {
-        const startkey = req.query.startkey ? req.query.startkey : undefined
-        const limit = req.query.limit ? req.query.limit : undefined
-        listMedsByLabel(startkey, limit, function(err, meds) {
-            console.log(startkey + " " + limit) //working...
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(meds)
-          })
-    } else {
-        res.status(200).send([])
-    }
+console.log('parker-and-parks-api has received a call.')
+
+/////////////////////////////////////////////
+//   family
+/////////////////////////////////////////////
+
+app.post('/family', function(req, resp, next) {
+  console.log('app.post req.body structure is ', req.body)
+  postFamily(req.body, function(err, dalResp) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(201).send(dalResp)
+  })
 })
 
-app.post('/medications', function(req, res, next) {
-    addMed(req.body, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(201).send(dalResponse)
-    })
-})
+app.get('/family', function(req, resp, next) {
+  const startKey = req.query.startkey ? req.query.startkey : undefined
+  const limit = req.query.limit ? req.query.limit : undefined
 
-app.put('/medications/:id', function(req, res, next) {
-    updateMed(req.body, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.messsge, err))
-        res.status(200).send(dalResponse)
-    })
-})
-
-app.get('/medications/:id', function(req, res, next) {
-    getMed(req.params.id, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(dalResponse)
-    })
-})
-
-app.delete('/medications/:id', function(req, res, next) {
-    deleteMed(req.params.id, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(dalResponse)
-
-    })
+  getFamilies(function(err, dalResp) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(dalResp)
+  })
 })
 
 
-app.get('/medications/ingredients', function(req, res, next) {
-    getUniqueIngredients(function(err, ingredients) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(ingredients)
-    })
-})
-
-app.get('/medications/forms', function(req, res, next) {
-    getUniqueForms(function(err, forms) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(forms)
-    })
-})
-
-///////////////////////
-//   patients
-//////////////////////
-
-app.post('/patients', function(req, res, next) {
-    addPatient(req.body, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(201).send(dalResponse)
-    })
+app.get('/family/:id', function(req, resp, next) {
+  getFamily(req.params.id, function(err, family) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(family)
+  })
 })
 
 
-app.get('/patients', function(req, res, next) {
-    if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'lastname') {
-        const result = split(':', req.query.filter)
-        listPatientsByLastName(result[1], function(err, patient) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(patient)
-        })
-    } else if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'condition') {
-        const result = split(':', req.query.filter)
-        listPatientsByCondition(result[1], function(err, patient) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(patient)
-        })
-    } else if (!req.query.filter) {
 
-        getPatients(function(err, patients) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(patients)
-        })
-    } else {
-
-        return res.status(200).send([])
-    }
+/////////////////////////////////////////////
+//   children
+/////////////////////////////////////////////
+app.post('/children', function(req, resp, next) {
+  postChildren(req.body, function(err, dalResp) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(201).send(dalResp)
+  })
 })
 
-app.get('/patients/conditions', function(req, res, next) {
-    getUniqueConditions(function(err, conditions) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(conditions)
-    })
+app.get('/children', function(req, resp, next) {
+  const startKey = req.query.startkey ? req.query.startkey : undefined
+  const limit = req.query.limit ? req.query.limit : undefined
+
+  listChildren(function(err, children) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    return resp.status(200).send(children)
+  })
 })
 
-app.put('/patients/:id', function(req, res, next) {
-    updatePatient(req.body, function(err, dalResponse) {
-        if (err) return next(new HTTPError(err.status, err.messsge, err))
-        res.status(200).send(dalResponse)
-    })
+
+app.get('/children/:id', function(req, resp, next) {
+  getChild(req.params.id, function(err, child) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(child)
+  })
 })
 
-app.get('/patients/:id', function(req, res, next) {
-    getPatient(req.params.id, function(err, resp) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(resp)
-    })
+app.get('/parks/:id/activitydetail/:id', function(req, resp, next) {
+  getActivity(req.params.id, function(err, activity) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(activity)
+  })
 })
 
-app.delete('/patients/:id', function(req, res, next) {
-    deletePatient(req.params.id, function(err, person) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(person)
-
-    })
+app.put('/children/:id', function(req, resp, next) {
+  updateChild(req.body, function(err, child) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(child)
+  })
 })
 
 
 
 
+/////////////////////////////////////////////
+//   badges
+/////////////////////////////////////////////
+app.get('/badges', function(req, resp, next) {
 
-
-
-///////////////////////
-//   pharmacies
-//////////////////////
-
-app.put('/pharmacies/:id', function(req, res, next) {
-    updatePharmacy(req.body, function(err, pharmacy) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(pharmacy)
-    })
+  listBadges(function(err, badges) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(badges)
+  })
 })
 
-app.post('/pharmacies', function(req, res, next) {
-    addPharmacy(req.body, function(err, docs) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(201).send(docs)
-    })
+/////////////////////////////////////////////
+//   park
+/////////////////////////////////////////////
+
+app.get('/parks', function(req, resp, next) {
+
+  getParks(function(err, parks) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(parks)
+  })
 })
 
-app.get('/pharmacies/:id', function(req, res, next) {
-    getPharmacy(req.params.id, function(err, returnedPharmacy) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(returnedPharmacy)
-    })
-})
-
-// app.get('/pharmacies', function(req, res, next) {
-//   const startKey = req.query.startkey ? req.query.startkey : undefined
-//   const limit = req.query.limit ? req.query.limit : undefined
-//
-//   listPharmacies(startKey, limit, function(err, pharmacyList) {
-//     if (err) return next(new HTTPError(err.status, err.message, err))
-//     res.status(200).send(pharmacyList)
-//   })
-// })
-
-app.get('/pharmacies', function(req, res, next) {
-    if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'chainname') {
-        const result = split(':', req.query.filter)
-        listPharmaciesByChainName(result[1], function(err, chain) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(chain)
-        })
-    } else if (req.query.filter && split(':', req.query.filter)[0].toLowerCase() === 'storename') {
-        const result = split(':', req.query.filter)
-        listPharmaciesByStoreName(result[1], function(err, store) {
-            if (err) return next(new HTTPError(err.status, err.message, err))
-            res.status(200).send(store)
-        })
-    } else if (!req.query.filter) {
-        const startKey = req.query.startkey ? req.query.startkey : undefined
-        const limit = req.query.limit ? req.query.limit : undefined
-
-        listPharmacies(startKey, limit, function(err, pharmacyList) {
-          if (err) return next(new HTTPError(err.status, err.message, err))
-          res.status(200).send(pharmacyList)
-        })
-    } else {
-        return res.status(200).send([])
-        }
-})
-
-
-app.delete('/pharmacies/:id', function(req, res, next) {
-    deletePharmacy(req.params.id, function(err, doc) {
-        if (err) return next(new HTTPError(err.status, err.message, err))
-        res.status(200).send(doc)
-    })
-})
-
-app.get('/', function(req, res) {
-    res.send('Welcome to the Pharma Student API!')
-})
+app.get('/parks/:id', function(req, resp, next) {
+  getPark(req.params.id, function(err, park) {
+    if (err) return next(new HTTPError(err.status, err.message, err))
+    resp.status(200).send(park)
+  })
+})()
 
 
 
-app.use(function(err, req, res, next) {
-    console.log(req.method, " ", req.path, "error:  ", err)
-    res.status(err.status || 500)
-    res.send(err)
+/////////////////////////////////////////////
+//   helper functions
+/////////////////////////////////////////////
+app.use(function(err, req, resp,next) {
+  console.log(req.method, " ", req.path, "error: ", err)
+  resp.status(err.status || 500)
+  resp.send(err)
 })
 
 app.listen(port, function() {
-    console.log("API is up and running on port ", port)
+  console.log('Parker API is up and running on port ', port)
 })

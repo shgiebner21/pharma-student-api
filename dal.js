@@ -1,391 +1,145 @@
 const PouchDB = require('pouchdb-http')
 PouchDB.plugin(require('pouchdb-mapreduce'))
-const couch_base_uri = "http://127.0.0.1:5984/" //3000 for most of us...otherwise 5984
-const couch_dbname = "pharma-student" //remember pharmacy for me pharma-student
-const db = new PouchDB(couch_base_uri + couch_dbname)
-const {
-    map,
-    uniq,
-    prop,
-    omit,
-    compose,
-    drop
-} = require('ramda')
+// const couch_base_uri = 'http://127.0.0.1:5984/'
+// const couch_dbname = 'cpc'
+// const db = new PouchDB(couch_base_uri + couch_dbname)
+
+const Cloudant = require('cloudant')
+const username = process.env.cloudant_username || 'nodejs'
+const password = process.env.cloudant_password
+const myURL = 'https://giebnar:@Coder~21@giebnar.cloudant.com'
+const cloudant = Cloudant({url: myURL})
+const dbname = 'cpc'
+const db = cloudant.db.use(dbname)
+
+const {map} = require('ramda')
 
 
-/////////////////////
-//   medications
-/////////////////////
 
-function getMed(medId, cb) {
-    db.get(medId, function(err, doc) {
-        if (err) return cb(err)
-        cb(null, doc)
-    })
+/////////////////////////////////////////////
+//   family
+/////////////////////////////////////////////
+function postFamily(family, cb) {
+  console.log('inside dal.js postFamily()')
+  family.type = 'family'
+  let newId = 'family_' + family.parentLast.toLowerCase()
+  + '_' + family.eMail.toLowerCase() + '_' + family.cellPhone
+  family._id = newId
+
+  db.insert(family, function(err, resp) {
+    if (err) return cb(err)
+    cb(null, resp)
+  })
 }
 
-function addMed(med, cb) {
-    med.type = "medication"
-    let newId = "medication_" + med.label.toLowerCase()
-    med._id = prepID(newId)
-
-  checkRequiredMedInputs(med)
-    ?  db.put(med, function(err, res) {
-        if (err) return cb(err)
-        cb(null, res)
-    }) : cb({
-            error: "bad_request",
-            reason: "bad_request",
-            name: "bad_request",
-            status: "400",
-            message: "need all required inputs..."
-    })
+function getFamilies(cb) {
+  db.view('families', 'families', {q: 'type: family', include_docs: true}, function(err, families) {
+    if (err) return cb(err)
+    cb(null, map(returnDoc, families.rows))
+  })
 }
 
-function updateMed(med, cb) {
-    db.put(med, function(err, doc) {
-        if (err) return cb(err)
-        cb(null, doc)
-    })
+
+function getFamily(id, cb) {
+  db.get(id, function(err, family) {
+    if (err) return cb(err)
+    cb(null, family)
+  })
 }
 
-function deleteMed(id, cb) {
-    db.get(id, function(err, doc) {
-        if (err) return cb(err)
+/////////////////////////////////////////////
+//   children
+/////////////////////////////////////////////
+function postChildren(child, cb) {
+  child.type = 'children'
+  let newId = 'children_' + child.childName.toLowerCase()
+  + '_' + child.familyId.toLowerCase()
+  child._id = newId
 
-        db.remove(doc, function(err, deletedMed) {
-            if (err) return cb(err)
-            cb(null, deletedMed)
-        })
-    })
+  db.insert(child, function(err, resp) {
+    if (err) return cb(err)
+    cb(null, resp)
+  })
 }
 
-// listMedsByLabel() - alpha sort by label - call pouchdb's api: db.query('medsByLabel', {options}, cb)
+function listChildren(cb) {
+  db.view('children', 'children', {q: 'type: children', include_docs: true}, function(err, children) {
+    if (err) return cb(err)
+    cb(null, map(returnDoc, children.rows))
+  })
+}
 
-function listMedsByLabel(startKey, limit, cb) {
 
-  let options = {}
-  options.include_docs = true
+function getChild(id, cb) {
+  db.get(id, function(err, child) {
+    if (err) return cb(err)
+    cb(null, child)
+  })
+}
 
-  if (startKey) {
-    options.startkey = startKey
-    options.limit = limit ? Number(limit) + 1 : 10
-  }  else {
-    options.limit = limit ? Number(limit) : 10
-  }
+function updateChild(child, cb) {
+  db.insert(child, function(err, resp) {
+    if (err) return cb(err)
+    cb(null, resp)
+  })
+}
 
-  const meds =  startKey ? compose (drop(1),map(x=>x.doc),map(addSortToken)):compose (map(x=>x.doc),map(addSortToken))
 
-    db.query('medsByLabel', options, function(err, res) {
+function getActivity(id, cb) {
+  db.get(id, function(err, activity) {
+    if (err) return cb(err)
+    cb(null, activity)
+  })
+}
+
+
+/////////////////////////////////////////////
+//   badges
+/////////////////////////////////////////////
+function listBadges(cb) {
+  db.view('badges', 'badges', {q: 'type: badge', include_docs: true}, function(err, list) {
+    if (err) return cb(err)
+    cb(null, map(returnDoc, list.rows))
+  })
+}
+
+/////////////////////////////////////////////
+//   park
+/////////////////////////////////////////////
+function getParks(cb) {
+  db.view('parks', 'parks', {q: 'type: park', include_docs: true},  function(err, parks) {
       if (err) return cb(err)
-      cb(null,meds(res.rows))
-  })
-}
-
-// listMedsByIngredient() - sort by ingredient - call pouchdb's api:  db.query('medsByIngredient', {options}, cb)
-function listMedsByIngredient(ingredient, cb) {
-    db.query('medsByIngredient', {
-        include_docs: true,
-        keys: [ingredient]
-    }, function(err, res) {
-        if (err) return cb(err)
-        cb(null, map(returnDoc, res.rows))
+      cb(null, map(returnDoc, parks.rows))
     })
 }
 
-function getUniqueIngredients(cb) {
-    db.query('medsByIngredient', null, function(err, res) {
-        if (err) return cb(err)
-        cb(null, uniq(map(row => row.key, res.rows)))
-    })
-}
-
-function listMedsByForm(form, cb) {
-    db.query('medsByForm', {
-        include_docs: true,
-        keys: [form]
-    }, function(err, res) {
-        if (err) return cb(err)
-        cb(null, map(returnDoc, res.rows))
-    })
-}
-
-function getUniqueForms(cb) {
-    db.query('medsByForm', null, function(err, res) {
-        if (err) return cb(err)
-        cb(null, uniq(map(row => row.key, res.rows)))
-    })
-}
-
-
-
-
-
-
-
-/////////////////////
-//    pharmacy
-/////////////////////
-
-function addPharmacy(doc, cb) {
-    checkRequiredInputs(doc) ?
-        db.put(preppedNewPharmacy(doc), function(err, addedPharmacy) {
-            if (err) return cb(err)
-            cb(null, addedPharmacy)
-        }) : cb({
-            error: "bad_request",
-            reason: "bad_request",
-            name: "bad_request",
-            status: "400",
-            message: "need all required inputs..."
-        })
-}
-
-function updatePharmacy(pharmacy, cb) {
-    db.put(pharmacy, function(err, doc) {
-        if (err) return cb(err)
-        cb(null, doc)
-    })
-}
-
-function getPharmacy(id, cb) {
-    db.get(id, function(err, doc) {
-        if (err) return cb(err)
-        cb(null, doc)
-    })
-}
-
-function listPharmaciesByChainName(chain, cb) {
-  db.query('pharmaciesByChainName', {include_docs: true, keys: [chain]}, function(err, chain) {
+function getPark(id, cb) {
+  db.get(id, function(err, park) {
     if (err) return cb(err)
-    cb(null, chain.rows)
+    cb(null, park)
   })
 }
 
-function listPharmaciesByStoreName(storeName, cb) {
-  db.query('pharmacyByStoreName', {include_docs: true, keys: [storeName]}, function(err, store) {
-    if (err) return cb(err)
-    cb(null, store.rows)
-  })
-}
 
-function deletePharmacy(id, cb) {
-    db.get(id, function(err, doc) {
-        if (err) return cb(err)
-        db.remove(doc, function(err, deletedPharmacy) {
-            if (err) return cb(err)
-            cb(null, deletedPharmacy)
-        })
-    })
-}
-
-
-
-
-// DONE: Move from allDocs() to to a couchdb query/view
-// DONE: Add a sort token / start key
-// DONE: Use Ramda's compose() to addSortToken before returning an array of docs
-// DONE: Add a startKey (sortToken) and limit params to the dal function.
-// DONE: Build a flexible options object that includes the startkey, limit, and include_docs
-// DONE:  Add to the limit and alter the compose to ramda drop(1)
-
-
-function listPharmacies(startKey, limit, cb) {
-
-    const options = {include_docs: true}
-    let shouldWeDrop = false
-
-    if (startKey) {
-      options.start_key = startKey
-      options.limit = limit ? Number(limit) + 1 : 25
-      shouldWeDrop = true
-    } else {
-      options.limit = limit ? limit : 25
-    }
-
-    db.query("pharmacies", options,
-        function(err, list) {
-            if (err) return cb(err)
-
-            var mappedQueryResults = shouldWeDrop ? compose(
-              drop(1),
-              map(returnDoc),
-              map(addSortToken)
-            )(list.rows) : compose(
-              map(returnDoc),
-              map(addSortToken)
-            )(list.rows)
-
-            cb(null, mappedQueryResults)
-        })
-}
-
-
-/////////////////// helper functions //////////////////////////
-function preppedNewPharmacy(doc) {
-  var newId = "pharmacy_" + doc.storeChainName.toLowerCase() + "_" + doc.storeName.toLowerCase() + "_" + doc.storeNumber
-  newId = newId.replace(" ", "_")
-    doc._id = newId
-    doc.type = "pharmacy"
-    return doc
-}
-
-
-
-
-/////////////////////
-//    patients
-/////////////////////
-
-function addPatient(patient, cb) {
-    patient.type = "patient"
-    let newId = `patient_${patient.lastName.toLowerCase()}_${patient.firstName.toLowerCase()}_${patient.last4SSN}_${patient.patientNumber}`
-    patient._id = prepID(newId)
-
-  checkRequiredPatientInputs(patient)
-    ?  db.put(patient, function(err, res) {
-        if (err) return cb(err)
-        cb(null, res)
-    })  : cb({
-            error: "bad_request",
-            reason: "bad_request",
-            name: "bad_request",
-            status: "400",
-            message: "need all required inputs..."
-    })
-}
-
-function getPatients(cb) {
-    db.allDocs({
-        include_docs: true,
-        start_key: "patient_",
-        end_key: "patient_\uffff"
-    }, function(err, res) {
-        if (err) return cb(err)
-        cb(null, (map(obj => omit("type", obj.doc), res.rows)))
-    })
-}
-
-function listPatientsByLastName(lastName, cb) {
-    db.query('patientsByLastName', {
-        include_docs: true,
-        keys: [lastName]
-    }, function(err, res) {
-        if (err) return cb(err)
-        cb(null, map(returnDoc, res.rows))
-    })
-}
-
-function listPatientsByCondition(condition, cb) {
-    db.query('patientsByCondition', {
-        include_docs: true,
-        keys: [condition]
-    }, function(err, res) {
-        if (err) return cb(err)
-        cb(null, map(returnDoc, res.rows))
-    })
-}
-
-function getUniqueConditions(cb) {
-    db.query('patientsByCondition', null, function(err, res) {
-        if (err) return cb(err)
-        cb(null, uniq(map(row => row.key, res.rows)))
-    })
-}
-
-function updatePatient(patient, cb) {
-    patient.type = "patient"
-    db.put(patient, function(err, res) {
-        if (err) return cb(err)
-        cb(null, res)
-    })
-}
-
-function deletePatient(id, cb) {
-    db.get(id, function(err, doc) {
-        if (err) return cb(err)
-        db.remove(doc, function(err, removedDoc) {
-            if (err) return cb(err)
-            cb(null, removedDoc)
-        })
-    })
-}
-
-function getPatient(patientId, cb) {
-    db.get(patientId, function(err, patient) {
-        if (err) return cb(err)
-        cb(null, patient)
-    })
-}
-
-
-
-
-
-
-
-
-///////////////////////
+/////////////////////////////////////////////
 // helper functions
-///////////////////////
-
-function preppedNewPharmacy(doc) {
-  var newId = "pharmacy_" + doc.storeChainName.toLowerCase() + "_" + doc.storeName.toLowerCase() + "_" + doc.storeNumber
-  newId = newId.replace(" ", "_")
-    doc._id = newId
-    doc.type = "pharmacy"
-    return doc
-}
-
-function prepID(id) {
-  return id.replace(/ /g, "_")
-}
-
-var addSortToken = function(queryRow) {
-    queryRow.doc.startKey = queryRow.key;
-    return queryRow;
-}
-
-function checkRequiredInputs(doc) {
-    return prop('storeNumber', doc) && prop('storeChainName', doc) && prop('storeName', doc) && prop('streetAddress', doc) && prop('phone', doc)
-}
-
-function checkRequiredPatientInputs(doc) {
-  return prop('firstName', doc) && prop('lastName', doc) && prop('birthdate', doc) && prop('gender', doc) && prop('ethnicity', doc) && prop('last4SSN', doc)
-}
-
-function checkRequiredMedInputs(doc) {
-  return prop('label', doc) && prop('type', doc) && prop('amount', doc) && prop('unit', doc) && prop('form', doc)
-}
+/////////////////////////////////////////////
 
 const returnDoc = row => row.doc
 
 
 const dal = {
-    addPharmacy: addPharmacy,
-    updatePharmacy: updatePharmacy,
-    getPharmacy: getPharmacy,
-    listPharmacies: listPharmacies,
-    deletePharmacy: deletePharmacy,
-    listPharmaciesByChainName: listPharmaciesByChainName,
-    listPharmaciesByStoreName: listPharmaciesByStoreName,
-    getUniqueForms: getUniqueForms,
-    getUniqueConditions: getUniqueConditions,
-    listMedsByLabel: listMedsByLabel,
-    getUniqueIngredients: getUniqueIngredients,
-    listMedsByIngredient: listMedsByIngredient,
-    listMedsByForm: listMedsByForm,
-    getMed: getMed,
-    addMed: addMed,
-    updateMed: updateMed,
-    deleteMed: deleteMed,
-    addPatient: addPatient,
-    getPatients: getPatients,
-    listPatientsByLastName: listPatientsByLastName,
-    listPatientsByCondition: listPatientsByCondition,
-    updatePatient: updatePatient,
-    deletePatient: deletePatient,
-    getPatient: getPatient
+  postFamily: postFamily,
+  getFamilies: getFamilies,
+  getFamily: getFamily,
+  postChildren: postChildren,
+  updateChild: updateChild,
+  listChildren: listChildren,
+  getChild: getChild,
+  listBadges: listBadges,
+  getParks: getParks,
+  getPark: getPark,
+  getActivity: getActivity
 }
 
 module.exports = dal

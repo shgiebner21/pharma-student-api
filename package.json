@@ -5,18 +5,20 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "PORT=8080 node app.js"
+    "start": "PORT=8082 node app.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.16.1",
+    "cloudant": "^1.8.0",
     "cors": "^2.8.1",
     "express": "^4.14.1",
     "node-http-error": "^1.0.0",
     "pouchdb-http": "^6.0.2",
     "pouchdb-mapreduce": "^6.1.2",
+    "pouchdb-react-native": "^6.2.6",
     "ramda": "^0.23.0"
   }
 }
